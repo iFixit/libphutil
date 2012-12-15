@@ -307,6 +307,47 @@ function mgroup(array $list, $by /* , ... */) {
 
 
 /**
+ * Group a list of objects by the value of some property. This function is the
+ * same as @{function:mgroup}, except it operates on the values of object
+ * properties rather than the return values of method calls.
+ *
+ * @param   list    List of objects to group by some property value.
+ * @param   string  Name of a property to select from each array in order to
+ *                  determine which group it should be placed into.
+ * @param   ...     Zero or more additional property names, to subgroup the
+ *                  groups.
+ * @return  dict    Dictionary mapping distinct property values to lists of
+ *                  all objects which had that value at the property.
+ * @group   util
+ */
+function pgroup(array $list, $by /* , ... */) {
+  $map = ppull($list, $by);
+
+  $groups = array();
+  foreach ($map as $group) {
+    // Can't array_fill_keys() here because 'false' gets encoded wrong.
+    $groups[$group] = array();
+  }
+
+  foreach ($map as $key => $group) {
+    $groups[$group][$key] = $list[$key];
+  }
+
+  $args = func_get_args();
+  $args = array_slice($args, 2);
+  if ($args) {
+    array_unshift($args, null);
+    foreach ($groups as $group_key => $grouped) {
+      $args[0] = $grouped;
+      $groups[$group_key] = call_user_func_array('pgroup', $args);
+    }
+  }
+
+  return $groups;
+}
+
+
+/**
  * Group a list of arrays by the value of some index. This function is the same
  * as @{function:mgroup}, except it operates on the values of array indexes
  * rather than the return values of method calls.
