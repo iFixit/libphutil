@@ -51,6 +51,41 @@ function idx(array $array, $key, $default = null) {
 
 
 /**
+ * Access an object property, retrieving the value stored there if it exists or
+ * a default if it does not. This function allows you to concisely access a
+ * property which may or may not exist without raising a warning.
+ *
+ * @param   object  Object to access.
+ * @param   scalar  Property to access in the object.
+ * @param   wild    Default value to return if the property is not present in
+ *                  the object.
+ * @return  wild    If $obj[$prop] exists, that value is returned. If not,
+ *                  $default is returned without raising a warning.
+ * @group   util
+ */
+function pr(/* object */ $obj, $prop, $default = null) {
+  // PHP is dumb. Specifying 'object' in the function definition results in a
+  // type error for any object.
+  if (!is_object($obj)) {
+    throw new Exception(sprintf("Argument 1 requires an object, %s given",
+     gettype($obj)));
+  }
+
+  // isset() is a micro-optimization - it is fast but fails for null values.
+  if (isset($obj->$prop)) {
+    return $obj->$prop;
+  }
+
+  // Comparing $default is also a micro-optimization.
+  if ($default === null || property_exists($obj, $prop)) {
+    return null;
+  }
+
+  return $default;
+}
+
+
+/**
  * Call a method on a list of objects. Short for "method pull", this function
  * works just like @{function:ipull}, except that it operates on a list of
  * objects instead of a list of arrays. This function simplifies a common type
@@ -299,6 +334,47 @@ function mgroup(array $list, $by /* , ... */) {
     foreach ($groups as $group_key => $grouped) {
       $args[0] = $grouped;
       $groups[$group_key] = call_user_func_array('mgroup', $args);
+    }
+  }
+
+  return $groups;
+}
+
+
+/**
+ * Group a list of objects by the value of some property. This function is the
+ * same as @{function:mgroup}, except it operates on the values of object
+ * properties rather than the return values of method calls.
+ *
+ * @param   list    List of objects to group by some property value.
+ * @param   string  Name of a property to select from each array in order to
+ *                  determine which group it should be placed into.
+ * @param   ...     Zero or more additional property names, to subgroup the
+ *                  groups.
+ * @return  dict    Dictionary mapping distinct property values to lists of
+ *                  all objects which had that value at the property.
+ * @group   util
+ */
+function pgroup(array $list, $by /* , ... */) {
+  $map = ppull($list, $by);
+
+  $groups = array();
+  foreach ($map as $group) {
+    // Can't array_fill_keys() here because 'false' gets encoded wrong.
+    $groups[$group] = array();
+  }
+
+  foreach ($map as $key => $group) {
+    $groups[$group][$key] = $list[$key];
+  }
+
+  $args = func_get_args();
+  $args = array_slice($args, 2);
+  if ($args) {
+    array_unshift($args, null);
+    foreach ($groups as $group_key => $grouped) {
+      $args[0] = $grouped;
+      $groups[$group_key] = call_user_func_array('pgroup', $args);
     }
   }
 
